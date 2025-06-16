@@ -105,6 +105,6 @@ void setup() {
 
 // main program loop
 void loop() {
-  static auto* event_loop = sensesp_app->get_event_loop();
+  static auto event_loop = sensesp_app->get_event_loop();
   event_loop->tick();
 }

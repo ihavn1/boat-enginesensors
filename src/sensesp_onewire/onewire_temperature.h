@@ -39,14 +39,11 @@ class DallasTemperatureSensors : public sensesp::Sensor<float> {
 
   uint32_t get_conversion_delay() { return conversion_delay_; }
 
-  uint32_t get_conversion_delay() { return conversion_delay_; }
-
  private:
   OneWireNg* onewire_;
   DSTherm::Resolution resolution_;
   std::set<OWDevAddr> known_addresses_;
   std::set<OWDevAddr> registered_addresses_;
-  DSTherm::Resolution resolution_;
   uint32_t conversion_delay_;
 };
 

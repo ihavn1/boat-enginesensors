@@ -38,7 +38,6 @@ DallasTemperatureSensors::DallasTemperatureSensors(
   onewire_ = new OneWireNg_CurrentPlatform(pin,
                                            false  // disable internal pull-up
   );
-  resolution_ = res;
 
   DSTherm drv{*onewire_};
 
@@ -100,7 +99,7 @@ bool DallasTemperatureSensors::get_next_address(OWDevAddr* addr) {
 }
 
 OneWireTemperature::OneWireTemperature(DallasTemperatureSensors* dts,
-                                       uint read_delay, String config_path)
+                                       uint32_t read_delay, String config_path)
     : sensesp::FloatSensor(config_path),
       dts_{dts},
       read_delay_{read_delay},
