@@ -6,8 +6,8 @@ set -euo pipefail
 
 PROJDIR=$(pwd)
 
-# replace the 
-sed -e "s|\${PROJDIR}|$PROJDIR|" ci/platformio-${CI_TARGET_DEVICE}.ini > ci/platformio.ini
+# replace the
+sed -e "s|\${PROJDIR}|$PROJDIR|" ci/platformio-ci.ini > ci/platformio.ini
 
 # the example to build comes from $PLATFORMIO_CI_SRC
 
