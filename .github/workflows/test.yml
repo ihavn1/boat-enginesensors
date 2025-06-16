@@ -1,6 +1,6 @@
 name: OneWire Temperature Automatic Build
 
-on: [push, pull_request]
+on: [pull_request]
 
 jobs:
   build:
@@ -11,7 +11,7 @@ jobs:
         example:
           - examples/onewire_temperature/onewire_temperature_example.cpp
         target_device:
-          - esp32dev
+          - pioarduino_esp32
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python
