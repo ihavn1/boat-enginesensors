@@ -4,6 +4,8 @@
 #include "sensesp/transforms/linear.h"
 #include "sensesp/ui/config_item.h"
 #include "sensesp_app_builder.h"
+#include "sensesp/sensors/digital_input.h"
+#include "sensesp/transforms/frequency.h"
 #include "sensesp_onewire/onewire_temperature.h"
 
 using namespace reactesp;
@@ -30,7 +32,7 @@ void setup() {
      Tell SensESP where the sensor is connected to the board
      ESP32 pins are specified as just the X in GPIOX
   */
-  uint8_t pin = 4;
+  uint8_t pin =25;
 
   DallasTemperatureSensors* dts = new DallasTemperatureSensors(pin);
 
@@ -59,7 +61,7 @@ void setup() {
       ->set_sort_order(200);
 
   auto coolant_temp_sk_output = new SKOutputFloat(
-      "propulsion.mainEngine.coolantTemperature", "/coolantTemperature/skPath");
+      "propulsion.engine.coolantTemperature", "/coolantTemperature/skPath");
 
   ConfigItem(coolant_temp_sk_output)
       ->set_title("Coolant Temperature Signal K Path")
@@ -75,32 +77,34 @@ void setup() {
   auto* exhaust_temp_calibration =
       new Linear(1.0, 0.0, "/exhaustTemperature/linear");
   auto* exhaust_temp_sk_output = new SKOutputFloat(
-      "propulsion.mainEngine.exhaustTemperature", "/exhaustTemperature/skPath");
+      "propulsion.engine.exhaustTemperature", "/exhaustTemperature/skPath");
 
   exhaust_temp->connect_to(exhaust_temp_calibration)
       ->connect_to(exhaust_temp_sk_output);
 
-  // Measure temperature of 24v alternator
-  auto* alt_24v_temp =
-      new OneWireTemperature(dts, read_delay, "/24vAltTemperature/oneWire");
-  auto* alt_24v_temp_calibration =
-      new Linear(1.0, 0.0, "/24vAltTemperature/linear");
-  auto* alt_24v_temp_sk_output = new SKOutputFloat(
-      "electrical.alternators.24V.temperature", "/24vAltTemperature/skPath");
+// ********** RPM Application **************//
+  const char* config_path_calibrate = "/Engine RPM/calibrate";
+  const char* config_path_skpath = "/Engine RPM/sk_path";
+  const float multiplier = 1.0;
 
-  alt_24v_temp->connect_to(alt_24v_temp_calibration)
-      ->connect_to(alt_24v_temp_sk_output);
+  auto* engineRPM = new DigitalInputCounter(16, INPUT_PULLUP, RISING, 500, config_path_calibrate);
 
-  // Measure temperature of 12v alternator
-  auto* alt_12v_temp =
-      new OneWireTemperature(dts, read_delay, "/12vAltTemperature/oneWire");
-  auto* alt_12v_temp_calibration =
-      new Linear(1.0, 0.0, "/12vAltTemperature/linear");
-  auto* alt_12v_temp_sk_output = new SKOutputFloat(
-      "electrical.alternators.12V.temperature", "/12vAltTemperature/skPath");
+    ConfigItem(engineRPM)
+        ->set_title("Engine RPM")
+        ->set_description("Revolutions of the Engine")
+        ->set_sort_order(1000);
 
-  alt_12v_temp->connect_to(alt_12v_temp_calibration)
-      ->connect_to(alt_12v_temp_sk_output);
+  engineRPM->connect_to(new Frequency(multiplier, config_path_calibrate))
+  // connect the output of sensor to the input of Frequency()
+          ->connect_to(new SKOutputFloat("propulsion.engine.revolutions", config_path_skpath));  
+          // connect the output of Frequency() to a Signal K Output as a number
+
+  auto engine_rpm_sk_output = new SKOutputFloat("propulsion.engine.revolutions", config_path_skpath);          
+
+  ConfigItem(engine_rpm_sk_output)
+      ->set_title("Engine RPM Signal K Path")
+      ->set_description("Signal K path for the RPM of engine")
+      ->set_sort_order(1100);          
 }
 
 // main program loop
