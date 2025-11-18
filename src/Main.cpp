@@ -61,7 +61,7 @@ void setup() {
       ->set_sort_order(120);
 
   auto coolant_temp_sk_output = new SKOutputFloat(
-      "propulsion.engine.coolantTemperature", "/coolantTemperature/skPath");
+      "propulsion.main.coolantTemperature", "/coolantTemperature/skPath");
 
   ConfigItem(coolant_temp_sk_output)
       ->set_title("Coolant Temperature Signal K Path")
@@ -77,7 +77,7 @@ void setup() {
   auto* seaWaterInTemperature_calibration =
       new Linear(1.0, 0.0, "/seaWaterInTemperature/linear");
   auto* seaWaterInTemperature_k_output = new SKOutputFloat(
-      "propulsion.engine.seaWaterInTemperature", "/seaWaterInTemperature/skPath");
+      "propulsion.main.seaWaterInTemperature", "/seaWaterInTemperature/skPath");
 
   seaWaterInTemperature->connect_to(seaWaterInTemperature_calibration)
       ->connect_to(seaWaterInTemperature_k_output);
@@ -88,7 +88,7 @@ void setup() {
   auto* seaWaterOutTemperature_calibration =
       new Linear(1.0, 0.0, "/seaWaterOutTemperature/linear");
   auto* seaWaterOutTemperature_k_output = new SKOutputFloat(
-      "propulsion.engine.seaWaterOutTemperature", "/seaWaterOutTemperature/skPath");
+      "propulsion.main.seaWaterOutTemperature", "/seaWaterOutTemperature/skPath");
 
   seaWaterOutTemperature->connect_to(seaWaterOutTemperature_calibration)
       ->connect_to(seaWaterOutTemperature_k_output);
@@ -107,10 +107,10 @@ void setup() {
 
   engineRPM->connect_to(new Frequency(multiplier, config_path_calibrate))
   // connect the output of sensor to the input of Frequency()
-          ->connect_to(new SKOutputFloat("propulsion.engine.revolutions", config_path_skpath));  
+          ->connect_to(new SKOutputFloat("propulsion.main.revolutions", config_path_skpath));  
           // connect the output of Frequency() to a Signal K Output as a number
 
-  auto engine_rpm_sk_output = new SKOutputFloat("propulsion.engine.revolutions", config_path_skpath);          
+  auto engine_rpm_sk_output = new SKOutputFloat("propulsion.main.revolutions", config_path_skpath);          
 
   ConfigItem(engine_rpm_sk_output)
       ->set_title("Engine RPM Signal K Path")
