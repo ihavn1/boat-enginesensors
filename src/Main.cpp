@@ -1,4 +1,5 @@
 #include <memory>
+#include "onewire_helper.h"
 
 #include "sensesp/signalk/signalk_output.h"
 #include "sensesp/transforms/linear.h"
@@ -11,6 +12,16 @@
 using namespace reactesp;
 using namespace sensesp;
 using namespace sensesp::onewire;
+
+// Board & project constants
+// - Use GPIO numbers (ESP32): refer to pins as `ONEWIRE_PIN`, `RPM_PIN`.
+// - Use named constants to avoid magic numbers scattered through the code.
+static constexpr uint8_t ONEWIRE_PIN = 25;
+static constexpr uint8_t RPM_PIN = 16;
+static constexpr unsigned int RPM_READ_DELAY_MS = 500;
+static constexpr unsigned int TEMPERATURE_READ_DELAY_MS = 2000;
+
+// add_onewire_temp is implemented in src/onewire_helper.cpp
 
 void setup() {
   SetupLogging();
@@ -32,90 +43,54 @@ void setup() {
      Tell SensESP where the sensor is connected to the board
      ESP32 pins are specified as just the X in GPIOX
   */
-  uint8_t pin =25;
-
-  DallasTemperatureSensors* dts = new DallasTemperatureSensors(pin);
+  DallasTemperatureSensors* dts = new DallasTemperatureSensors(ONEWIRE_PIN);
 
   // Define how often SensESP should read the sensor(s) in milliseconds
-  uint read_delay = 500;
+  uint temperature_read_delay = TEMPERATURE_READ_DELAY_MS;
 
   // Below are temperatures sampled and sent to Signal K server
   // To find valid Signal K Paths that fits your need you look at this link:
   // https://signalk.org/specification/1.4.0/doc/vesselsBranch.html
 
   // Measure coolant temperature
-  auto coolant_temp =
-      new OneWireTemperature(dts, read_delay, "/coolantTemperature/oneWire");
+    // Measure coolant temperature
+    add_onewire_temp(dts, temperature_read_delay, "coolantTemperature",
+             "propulsion.main.coolantTemperature",
+             "Coolant Temperature", 110, 120, 130);
 
-  ConfigItem(coolant_temp)
-      ->set_title("Coolant Temperature")
-      ->set_description("Temperature of the engine coolant")
-      ->set_sort_order(110);
+    // Measure SeaWaterIn temperature
+    add_onewire_temp(dts, temperature_read_delay, "seaWaterInTemperature",
+             "propulsion.main.seaWaterInTemperature",
+             "Sea Water In Temperature", 140, 150, 160);
 
-  auto coolant_temp_calibration =
-      new Linear(1.0, 0.0, "/coolantTemperature/linear");
-
-  ConfigItem(coolant_temp_calibration)
-      ->set_title("Coolant Temperature Calibration")
-      ->set_description("Calibration for the coolant temperature sensor")
-      ->set_sort_order(120);
-
-  auto coolant_temp_sk_output = new SKOutputFloat(
-      "propulsion.main.coolantTemperature", "/coolantTemperature/skPath");
-
-  ConfigItem(coolant_temp_sk_output)
-      ->set_title("Coolant Temperature Signal K Path")
-      ->set_description("Signal K path for the coolant temperature")
-      ->set_sort_order(130);
-
-  coolant_temp->connect_to(coolant_temp_calibration)
-      ->connect_to(coolant_temp_sk_output);
-
-  // Measure SeaWaterIn temperature
-  auto* seaWaterInTemperature =
-      new OneWireTemperature(dts, read_delay, "/seaWaterInTemperature/oneWire");
-  auto* seaWaterInTemperature_calibration =
-      new Linear(1.0, 0.0, "/seaWaterInTemperature/linear");
-  auto* seaWaterInTemperature_k_output = new SKOutputFloat(
-      "propulsion.main.seaWaterInTemperature", "/seaWaterInTemperature/skPath");
-
-  seaWaterInTemperature->connect_to(seaWaterInTemperature_calibration)
-      ->connect_to(seaWaterInTemperature_k_output);
-
-  // Measure SeaWaterOut temperature
-  auto* seaWaterOutTemperature =
-      new OneWireTemperature(dts, read_delay, "/seaWaterOutTemperature/oneWire");
-  auto* seaWaterOutTemperature_calibration =
-      new Linear(1.0, 0.0, "/seaWaterOutTemperature/linear");
-  auto* seaWaterOutTemperature_k_output = new SKOutputFloat(
-      "propulsion.main.seaWaterOutTemperature", "/seaWaterOutTemperature/skPath");
-
-  seaWaterOutTemperature->connect_to(seaWaterOutTemperature_calibration)
-      ->connect_to(seaWaterOutTemperature_k_output);
+    // Measure SeaWaterOut temperature
+    add_onewire_temp(dts, temperature_read_delay, "seaWaterOutTemperature",
+             "propulsion.main.seaWaterOutTemperature",
+             "Sea Water Out Temperature", 170, 180, 190);
       
 // ********** RPM Application **************//
-  const char* config_path_calibrate = "/Engine RPM/calibrate";
-  const char* config_path_skpath = "/Engine RPM/sk_path";
+  const char* config_path_calibrate = "/engineRPM/calibrate";
+  const char* config_path_skpath = "/engineRPM/sk_path";
   const float multiplier = 1.0;
 
-  auto* engineRPM = new DigitalInputCounter(16, INPUT_PULLUP, RISING, 500, config_path_calibrate);
+  auto* engineRPM = new DigitalInputCounter(RPM_PIN, INPUT_PULLUP, RISING, RPM_READ_DELAY_MS, config_path_calibrate);
 
-    ConfigItem(engineRPM)
-        ->set_title("Engine RPM")
-        ->set_description("Revolutions of the Engine")
-        ->set_sort_order(200);
+  ConfigItem(engineRPM)
+      ->set_title("Engine RPM")
+      ->set_description("Revolutions of the Engine")
+      ->set_sort_order(200);
 
-  engineRPM->connect_to(new Frequency(multiplier, config_path_calibrate))
-  // connect the output of sensor to the input of Frequency()
-          ->connect_to(new SKOutputFloat("propulsion.main.revolutions", config_path_skpath));  
-          // connect the output of Frequency() to a Signal K Output as a number
+  // Create Frequency and SK output once and reuse them (avoid duplicate SKOutputFloat)
+  auto* rpm_frequency = new Frequency(multiplier, config_path_calibrate);
+  auto* engine_rpm_sk_output = new SKOutputFloat("propulsion.main.revolutions", config_path_skpath);
 
-  auto engine_rpm_sk_output = new SKOutputFloat("propulsion.main.revolutions", config_path_skpath);          
+  // Connect sensor -> frequency -> SK output
+  engineRPM->connect_to(rpm_frequency)->connect_to(engine_rpm_sk_output);
 
   ConfigItem(engine_rpm_sk_output)
       ->set_title("Engine RPM Signal K Path")
       ->set_description("Signal K path for the RPM of engine")
-      ->set_sort_order(210);          
+      ->set_sort_order(210);
 }
 
 // main program loop
